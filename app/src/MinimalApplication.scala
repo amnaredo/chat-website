@@ -20,7 +20,7 @@ object MinimalApplication extends cask.MainRoutes{
           h1("Scala Chat!"),
           div(id := "messageList")(messageList()),
           div(id := "errorDiv", color.red),
-          form(onSubmit := "submitForm(); return false")(
+          form(onsubmit := "submitForm(); return false")(
             input(`type` := "text", id := "nameInput", placeholder := "User name"),
             input(`type` := "text", id := "msgInput", placeholder := "Write a message!"),
             input(`type` := "submit") 
