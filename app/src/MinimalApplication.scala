@@ -1,7 +1,24 @@
 package app
 import scalatags.Text.all._
 object MinimalApplication extends cask.MainRoutes{
-  var messages = Vector(("alice", "Hello World!"), ("bob", "I am cow, hear me moo"))
+  case class Message(name: String, msg: String)
+  import com.opentable.db.postgres.embedded.EmbeddedPostgres
+  val server = EmbeddedPostgres.builder()
+    .setDataDirectory(System.getProperty("user.home") + "/data")
+    .setCleanDataDirectory(false).setPort(5432)
+    .start()
+  import io.getquill._
+  import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
+  val pgDataSource = new org.postgresql.ds.PGSimpleDataSource()
+  pgDataSource.setUser("postgres")
+  val hikariConfig = new HikariConfig()
+  hikariConfig.setDataSource(pgDataSource)
+  val ctx = new PostgresJdbcContext(LowerCase, new HikariDataSource(hikariConfig))
+  ctx.executeAction("CREATE TABLE IF NOT EXISTS message (name text, msg text);")
+  import ctx._
+  
+  def messages = ctx.run(query[Message].map(m => (m.name, m.msg)))
+
   var openConnections = Set.empty[cask.WsChannelActor]
   val bootstrap = "https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.css"
 
@@ -37,7 +54,7 @@ object MinimalApplication extends cask.MainRoutes{
     if (name == "") ujson.Obj("success" -> false, "err" -> "Name cannot be empty")
     else if (msg == "") ujson.Obj("success" -> false, "errr" -> "Message cannot be empty")
     else {
-      messages = messages :+ (name -> msg)
+      ctx.run(query[Message].insert(lift(Message(name, msg))))
       for (conn <- openConnections) conn.send(cask.Ws.Text(messageList().render))
       ujson.Obj("success" -> true, "err" -> "")
     }
